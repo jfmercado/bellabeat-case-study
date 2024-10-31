@@ -38,7 +38,7 @@ We will be using the following data: [FitBit Fitness Tracker Data](https://www.k
 ### Environment Set-Up
 
 
-```python
+```{r results="hide"}
 # Load the packages
 library(tidyverse)
 library(janitor)
@@ -47,7 +47,7 @@ library(tools)
 ```
 
 
-```python
+```{r results="hide"}
 # Import the data into a list of data tables
 path <- "/kaggle/input/fitbit/mturkfitbit_export_3.12.16-4.11.16"
 csv_files <- list.files(path = path,
@@ -71,7 +71,7 @@ unclean_data_tables2 <- map(csv_files, fread) %>%
 #### There is a lot of data in 29 total data tables, so our first step will be to simply remove any data tables aren't of use to us. The minute tables are far too granular, so we can get rid of those.
 
 
-```python
+```{r results="hide"}
 # We'll use the more efficient negative indices rather than searching for substrings
 unclean_data_tables1 <- unclean_data_tables1[-c(6:10)]
 unclean_data_tables2 <- unclean_data_tables2[-c(9:16)]
@@ -80,7 +80,7 @@ unclean_data_tables2 <- unclean_data_tables2[-c(9:16)]
 #### Now that we have 2 lists of the same data (except for sleep data) from different time periods, we can combine based on their shared column names.
 
 
-```python
+```{r results="hide"}
 # Get all unique names from both lists
 table_names <- unique(c(names(unclean_data_tables1), names(unclean_data_tables2)))
 
@@ -102,7 +102,7 @@ names(unclean_data_tables) <- table_names
 #### Now that we have a single list of data tables, we can clean the individual tables and further explore.
 
 
-```python
+```{r results="hide"}
 # Clean the column names for consistency by converting to snake case
 dt_list <- lapply(unclean_data_tables, clean_names)
 
@@ -845,7 +845,7 @@ lapply(dt_list, function(dt) {
 
 
 
-```python
+```{r results="hide"}
 # Now we can see how many unique users and days logged each data table has to ensure we have a large enough sample size
 lapply(dt_list, function(dt) {
   dt[, .(unique_dates = uniqueN(date)), by = id]
@@ -1262,14 +1262,14 @@ lapply(dt_list, function(dt) {
 #### All of the data tables have at least 30 unique users (desired minimum sample size) besides heart rate, sleep, and weight. Sleep is close at 24, so we'll keep it in for practice. Heart rate and weight are exceptionally low, so we'll exclude those from our analysis.
 
 
-```python
+```{r results="hide"}
 dt_list <- dt_list[-c(2, 6)]
 ```
 
 #### Next, we'll perform some checks.
 
 
-```python
+```{r results="hide"}
 # Check for duplicate rows
 lapply(dt_list, function(dt) {
   sum(duplicated(dt) | duplicated(dt, fromLast = TRUE))
@@ -1381,7 +1381,7 @@ lapply(dt_list, function(dt) {
 #### The daily activity table already contains information about calories, intensities, and steps. We need to check to see if it'those individual tables are redundant.
 
 
-```python
+```{r results="hide"}
 # Helper function
 compare_tables <- function(dt_list, x_index, y_index, match_cols) {
   
@@ -1443,13 +1443,13 @@ compare_tables(dt_list, 1, 7, c("id", "date", "steps"))
 
 
 
-```python
+```{r results="hide"}
 # All of the data is redundant so we can remove those tables
 dt_list <- dt_list[-c(5:7)]
 ```
 
 
-```python
+```{r results="hide"}
 # The last step before merging is to convert dates to consistent formats. This will be easier by splitting the data table list into daily and hourly lists.
 daily_list <- dt_list[c(1, 5)]
 hourly_list <- dt_list[2:4]
@@ -1464,14 +1464,14 @@ hourly_list <- lapply(hourly_list, function(dt) {
 ```
 
 
-```python
+```{r results="hide"}
 # Now we can finally extract our daily and hourly data tables from the lists based on id and date
 daily_activity <- Reduce(function(x, y) merge(x, y, all.x = TRUE, by = c("id", "date")), daily_list) # We want to use a left join here because we want the sleep data
 hourly_activity <- Reduce(function(x, y) merge(x, y, all = TRUE, by = c("id", "date")), hourly_list) # We want an outer join here because all of the data is equally important for analysis
 ```
 
 
-```python
+```{r results="hide"}
 # Check our work
 summary(daily_activity)
 summary(hourly_activity)
@@ -1546,7 +1546,7 @@ summary(hourly_activity)
 
 
 
-```python
+```{r results="hide"}
 # We know that steps and calories should probably not be zero or even close to zero, so let's remove any rows below 100 steps or 1000 calories as those were probably days that the wearable was not worn for the majority of the day.
 daily_activity <- daily_activity[!(steps < 100 | calories < 1000)]
 ```
@@ -1557,7 +1557,7 @@ daily_activity <- daily_activity[!(steps < 100 | calories < 1000)]
 ### We'll create new columns for more granular analysis.
 
 
-```python
+```{r results="hide"}
 # Weekday, date, and hour columns
 hourly_activity[, datetime := format(date, "%Y-%m-%d %H:%M:%S")] # Convert to string for easier parsing by Excel and Tableau
 hourly_activity[, hour := hour(date)]
@@ -1585,7 +1585,7 @@ daily_activity$intensity_score <- daily_activity$very_active_minutes * 2 + daily
 ### We can create a classification of the day's activity level based on steps. We'll get our category ranges from the Tudor-Locke and Bassett classification system.
 
 
-```python
+```{r results="hide"}
 steps_breaks <- c(0, 5000, 7500, 10000, 12500, max(daily_activity[,steps]))
 steps_labels <- c("Sedentary", "Physically Inactive", "Moderately Active", "Physically Active", "Very Active")
 
@@ -1601,7 +1601,7 @@ daily_activity$daily_activity_category <- factor(daily_activity$daily_activity_c
 ### Next, we'll create new data tables with the averages of the metrics grouped by weekday, ID, and hour
 
 
-```python
+```{r results="hide"}
 # Create a list of column names that we want to average
 numeric_avg_cols <- names(daily_activity)[sapply(daily_activity, is.numeric)]
 numeric_avg_cols <- numeric_avg_cols[-1] # We don't need to find the averages of the ID column
@@ -1618,7 +1618,7 @@ hourly_avgs <- hourly_activity[, lapply(.SD, mean, na.rm = TRUE), by = hour, .SD
 ```
 
 
-```python
+```{r results="hide"}
 # We can apply our steps categorization to users' average scores rather than their daily scores
 id_avgs[, user_category := cut(steps,
                                        breaks = steps_breaks,
@@ -1634,7 +1634,7 @@ hourly_activity <- merge(hourly_activity, id_avgs[, .(id, user_category)], by = 
 ```
 
 
-```python
+```{r results="hide"}
 # Check that we didn't create any unwanted NA values (besides sleep data)
 colSums(is.na(daily_activity))
 colSums(is.na(hourly_activity))
@@ -1663,7 +1663,7 @@ colSums(is.na(hourly_activity))
 ## Data Analysis
 
 
-```python
+```{r results="hide"}
 # Summary Statistics
 summary(daily_activity[, .(steps,
                        very_active_minutes,
@@ -1724,7 +1724,7 @@ summary(daily_activity[, .(steps,
  * A WebMD survey (one of the few that distuingishes time asleep from time in bed) found that on average, Americans spend only 5.7 hours asleep while spending 7.67 hours in bed (our users' averages are 6.98 hours alsleep and 7.63 hours in bed).
 
 
-```python
+```{r results="hide"}
 summary(hourly_activity)
 ```
 
@@ -1763,7 +1763,7 @@ summary(hourly_activity)
 #### Next, we'll try and find any relationships between metrics.
 
 
-```python
+```{r results="hide"}
 paste("Steps vs. Calories R-Value:", cor(daily_activity$steps, daily_activity$calories))
 paste("Minutes Asleep vs. Time in Bed R-Value:", cor(daily_activity$minutes_asleep, daily_activity$time_in_bed, use = "complete.obs"))
 paste("Minutes Asleep vs. Sedentary Minutes R-Value:", cor(daily_activity$minutes_asleep, daily_activity$sedentary_minutes, use = "complete.obs"))
@@ -1784,7 +1784,7 @@ paste("Minutes Asleep vs. Sedentary Minutes R-Value:", cor(daily_activity$minute
 Our assumption that sedentary minutes includes minutes asleep means that we'd expect a strong positive correlation and, in fact, we see a strong negative correlation. This data tells us that the more sedentary minutes a user has in the day, the more minutes they spend sleeping.
 
 
-```python
+```{r results="hide"}
 # In order to control for time in bed, we check the relationship between sleep score and sedentary minutes
 paste("Sleep Score vs. Sedentary Minutes R-Value:",cor(daily_activity$sleep_score, daily_activity$sedentary_minutes, use = "complete.obs"))
 
@@ -1803,7 +1803,7 @@ paste("Minutes Asleep vs. Intensity Score R-Value:",cor(daily_activity$minutes_a
 This is a great example of how correlation doesn't necessarily equal causation. Sedentary minutes may be correlated with less sleep, but sedentary minutes is not correlated with *how well* one sleeps. Inversely, higher intensity throughout the day has little correlation with less sleep. Rather than trying to reduce sedentary minutes to improve their sleep, users would probably be better served by increasing their total time in bed, either by going to bed earlier or sleeping in later.
 
 
-```python
+```{r results="hide"}
 print(weekday_avgs)
 ```
 
@@ -1873,7 +1873,7 @@ print(weekday_avgs)
 These plots include the correlation tests we conducted in the Analyze phase.
 
 
-```python
+```{r results="hide"}
 # Plot categories on a pie graph
 ggplot(daily_activity, aes(x = "", fill = user_category)) + 
     geom_bar(width = 1) +
@@ -1888,7 +1888,7 @@ ggplot(daily_activity, aes(x = "", fill = user_category)) +
 
 
 
-```python
+```{r results="hide"}
 # Plot total steps vs. calories
 ggplot(daily_activity, aes(x = steps, y = calories)) + 
   geom_point() +
@@ -1906,7 +1906,7 @@ ggplot(daily_activity, aes(x = steps, y = calories)) +
 
 
 
-```python
+```{r results="hide"}
 # Plot time asleep vs. total time in bed
 ggplot(daily_activity, aes(x = minutes_asleep, y = time_in_bed)) + 
   geom_point() +
@@ -1930,7 +1930,7 @@ ggplot(daily_activity, aes(x = minutes_asleep, y = time_in_bed)) +
 
 
 
-```python
+```{r results="hide"}
 # Plot time asleep vs. sedentary minutes
 ggplot(daily_activity, aes(x = minutes_asleep, y = sedentary_minutes)) + 
   geom_point() +
@@ -1954,7 +1954,7 @@ ggplot(daily_activity, aes(x = minutes_asleep, y = sedentary_minutes)) +
 
 
 
-```python
+```{r results="hide"}
 # In order to control for time in bed, we check the relationship between sleep score and sedentary minutes
 ggplot(daily_activity, aes(x = sleep_score, y = sedentary_minutes)) + 
   geom_point() +
@@ -1978,7 +1978,7 @@ ggplot(daily_activity, aes(x = sleep_score, y = sedentary_minutes)) +
 
 
 
-```python
+```{r results="hide"}
 # And then to confirm once more, we'll check minutes asleep vs. intensity score
 ggplot(daily_activity, aes(x = minutes_asleep, y = intensity_score)) + 
   geom_point() +
@@ -2004,7 +2004,7 @@ ggplot(daily_activity, aes(x = minutes_asleep, y = intensity_score)) +
 ### Average Data vs. Weekday
 
 
-```python
+```{r results="hide"}
 # Calories burned per day
 ggplot(weekday_avgs, aes(x = weekday, y = calories)) + 
   geom_histogram(stat = "identity", fill = "skyblue") +
@@ -2085,7 +2085,7 @@ We can see that none of the averages quite reach the recommended 10000 steps or 
 ### Data vs. Hour
 
 
-```python
+```{r results="hide"}
 # Calories per hour
 ggplot(hourly_avgs, aes(x = hour, y = calories)) +
   geom_histogram(stat = "identity", fill = "skyblue") +
@@ -2148,7 +2148,7 @@ ggplot(hourly_avgs, aes(x = hour, y = steps)) +
 ### We can plot multiple columns against time by pivoting our data to long format. The variation between weekdays wasn't as pronounced as between hours, so let's try it with our hourly average data.
 
 
-```python
+```{r results="hide"}
 # Pivot to long data
 hourly_avgs_long <- pivot_longer(hourly_avgs,
                                  cols = c(calories, steps, intensity),
@@ -2192,7 +2192,7 @@ We can clearly see an almost perfect correlation between all 3, with values lowe
 ### Next we'll plot the different activity intensity levels against calories using the same pivoting method.
 
 
-```python
+```{r results="hide"}
 # Reshape the data from wide to long format
 daily_activity_intensity_long <- pivot_longer(daily_activity,
                                      cols = c(lightly_active_minutes, fairly_active_minutes, very_active_minutes),
@@ -2248,7 +2248,7 @@ We can that all active minutes are positively correlated with calories, with cor
 ### We can visualize multiple plots even more powerfully with Tableau, so let's write our data to csv files and transfer them to Tableau.
 
 
-```python
+```{r results="hide"}
 #Export to CSV
 write.csv(daily_activity, file = 'fitbit_daily_activity_03122016_05122016.csv')
 write.csv(hourly_activity, file = 'fitbit_hourly_activity_03122016_05122016.csv')
